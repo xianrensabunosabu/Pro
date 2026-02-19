@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Sennin Browser</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #00ffcc; font-family: sans-serif; overflow: hidden; }
+        #nav { height: 50px; background: #111; display: flex; align-items: center; padding: 0 15px; gap: 10px; border-bottom: 2px solid #00ffcc; }
+        input { flex: 1; background: #000; border: 1px solid #00ffcc; color: #fff; padding: 8px 15px; border-radius: 20px; outline: none; }
+        iframe { width: 100%; height: calc(100% - 50px); border: none; background: #fff; display: none; }
+        #home { display: flex; height: calc(100% - 50px); align-items: center; justify-content: center; flex-direction: column; text-align: center; }
+        #status { font-size: 12px; margin-top: 10px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <div id="nav">
+        <input id="url" type="text" placeholder="URLまたは検索ワードを入力...">
+        <button onclick="location.reload()">🔄</button>
+    </div>
+    <div id="home">
+        <h1>SENNIN PROXY OS</h1>
+        <div id="status">エンジン初期化中...</div>
+    </div>
+    <iframe id="ifr"></iframe>
+
+    <script src="/uv/uv.bundle.js"></script>
+    <script src="/uv/uv.config.js"></script>
+    <script>
+        const ifr = document.getElementById('ifr');
+        const urlInput = document.getElementById('url');
+        const status = document.getElementById('status');
+
+        async function registerSW() {
+            try {
+                const reg = await navigator.serviceWorker.register('/uv/sw.js', { scope: __uv$config.prefix });
+                while (!reg.active) { await new Promise(r => setTimeout(r, 100)); }
+                status.innerText = "STATUS: READY (エンジン準備完了)";
+                return true;
+            } catch (e) {
+                status.innerText = "ERROR: エンジンの起動に失敗しました";
+                return false;
+            }
+        }
+
+        async function launch(val) {
+            status.innerText = "接続中...";
+            const ready = await registerSW();
+            if (!ready) return;
+
+            let url = val.trim();
+            if (!url.includes('.') || url.includes(' ')) {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                url = data.url;
+            } else if (!url.startsWith('http')) {
+                url = 'https://' + url;
+            }
+
+            document.getElementById('home').style.display = 'none';
+            ifr.style.display = 'block';
+            ifr.src = __uv$config.prefix + __uv$config.encodeUrl(url);
+        }
+
+        urlInput.onkeydown = e => { if(e.key === 'Enter') launch(e.target.value); };
+        
+        // ページ読み込み時にバックグラウンドで準備
+        registerSW();
+    </script>
+</body>
+</html>
+
